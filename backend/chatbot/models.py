@@ -16,18 +16,19 @@ class Participant(models.Model):
         editable=False
     )
 
-    assigned_condition = models.ForeignKey(
-        ExperimentCondition,
-        on_delete=models.CASCADE,
-        related_name="participants"
-    )
+    # assigned_condition = models.ForeignKey(
+    #     ExperimentCondition,
+    #     on_delete=models.CASCADE,
+    #     related_name="participants"
+    # )
 
-    pre_survey_completed = models.BooleanField(
-        default=False
-    )
-
-    post_survey_completed = models.BooleanField(
-        default=False
+    # Randomized order
+    role_order = models.CharField(
+        max_length=30,
+        choices=[
+            ("IG_CE", "Idea Generator → Critical Evaluator"),
+            ("CE_IG", "Critical Evaluator → Idea Generator"),
+        ]
     )
 
     started_at = models.DateTimeField(
@@ -61,14 +62,44 @@ class Participant(models.Model):
             2
         )
 
-class ChatSession(models.Model):
+class ExperimentPhase(models.Model):
 
     participant = models.ForeignKey(
         Participant,
         on_delete=models.CASCADE,
-        related_name="sessions",
+        related_name="phases"
+    )
+
+    phase_number = models.IntegerField()
+
+    condition = models.ForeignKey(
+        ExperimentCondition,
+        on_delete=models.CASCADE
+    )
+
+    survey_completed = models.BooleanField(default=False)
+
+    started_at = models.DateTimeField(auto_now_add=True)
+
+    finished_at = models.DateTimeField(
         null=True,
         blank=True
+    )
+
+class ChatSession(models.Model):
+
+    # participant = models.ForeignKey(
+    #     Participant,
+    #     on_delete=models.CASCADE,
+    #     related_name="sessions",
+    #     null=True,
+    #     blank=True
+    # )
+
+    phase = models.OneToOneField(
+        ExperimentPhase,
+        on_delete=models.CASCADE,
+        related_name="chat_session"
     )
 
     session_id = models.UUIDField(
@@ -77,10 +108,10 @@ class ChatSession(models.Model):
         editable=False
     )
 
-    condition = models.ForeignKey(
-        ExperimentCondition,
-        on_delete=models.CASCADE
-    )
+    # condition = models.ForeignKey(
+    #     ExperimentCondition,
+    #     on_delete=models.CASCADE
+    # )
 
     total_messages = models.IntegerField(
         default=0
@@ -125,3 +156,17 @@ class ChatMessage(models.Model):
         return f"Message {self.id}"
     
    
+class Survey(models.Model):
+
+    phase = models.OneToOneField(
+        ExperimentPhase,
+        on_delete=models.CASCADE,
+        related_name="survey"
+    )
+
+    completed = models.BooleanField(default=False)
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )

@@ -14,7 +14,9 @@ from .models import (
     Participant,
     ChatSession,
     ChatMessage,
-    ExperimentCondition
+    ExperimentCondition,
+    ExperimentPhase,
+    Survey
 )
 import logging
 
@@ -29,33 +31,86 @@ def health(request):
 @api_view(["POST"])
 def start_experiment(request):
 
-    idea_count = Participant.objects.filter(
-        assigned_condition__name="idea-generator"
+    # idea_count = Participant.objects.filter(
+    #     assigned_condition__name="idea-generator"
+    # ).count()
+
+    # critical_count = Participant.objects.filter(
+    #     assigned_condition__name="critical-evaluator"
+    # ).count()
+
+    # if idea_count <= critical_count:
+    #     condition_name = "idea-generator"
+    # else:
+    #     condition_name = "critical-evaluator"
+
+    # condition = ExperimentCondition.objects.get(
+    #     name=condition_name
+    # )
+
+    # participant = Participant.objects.create(
+    #     assigned_condition=condition
+    # )
+
+    logger.info("starting an experiment")
+
+    ig_ce_count = Participant.objects.filter(
+        role_order="IG_CE"
     ).count()
 
-    critical_count = Participant.objects.filter(
-        assigned_condition__name="critical-evaluator"
+    ce_ig_count = Participant.objects.filter(
+        role_order="CE_IG"
     ).count()
 
-    if idea_count <= critical_count:
-        condition_name = "idea-generator"
+    if ig_ce_count <= ce_ig_count:
+        role_order = "IG_CE"
     else:
-        condition_name = "critical-evaluator"
-
-    condition = ExperimentCondition.objects.get(
-        name=condition_name
-    )
+        role_order = "CE_IG"
 
     participant = Participant.objects.create(
-        assigned_condition=condition
+        role_order=role_order
+    )
+
+    idea_generator = ExperimentCondition.objects.get(
+        name="idea-generator"
+    )
+
+    critical_evaluator = ExperimentCondition.objects.get(
+        name="critical-evaluator"
+    )
+
+    if role_order == "IG_CE":
+        first = idea_generator
+        second = critical_evaluator
+    else:
+        first = critical_evaluator
+        second = idea_generator
+
+    phase1 = ExperimentPhase.objects.create(
+        participant=participant,
+        phase_number=1,
+        condition=first,
+    )
+
+    phase2 = ExperimentPhase.objects.create(
+        participant=participant,
+        phase_number=2,
+        condition=second,
+    )
+
+    Survey.objects.create(
+        phase=phase1
+    )
+
+    Survey.objects.create(
+        phase=phase2
     )
 
     return Response({
-        "participant_id":
-            str(participant.participant_id),
-
-        "condition":
-            condition_name
+        "participant_id": str(participant.participant_id),
+        "role_order": role_order,
+        "current_phase": 1,
+        "condition": first.name,
     })
 
 @api_view(["POST"])
@@ -64,9 +119,8 @@ def complete_survey(request):
     participant_id = request.data.get(
         "participant_id"
     )
-
-    survey_type = request.data.get(
-        "survey_type"
+    phase_id = request.data.get(
+        "phase_id"
     )
 
     try:
@@ -75,29 +129,37 @@ def complete_survey(request):
             participant_id=participant_id
         )
 
-    except Participant.DoesNotExist:
+        phase = ExperimentPhase.objects.get(
+            participant = participant,
+            phase_number = phase_id
+        )
+
+        survey = Survey.objects.get(
+            phase = phase
+        )
+
+        survey.completed = True
+        survey.completed_at = timezone.now()
+        survey.save()
+
+    except survey.DoesNotExist:
 
         return Response(
             {
                 "error":
-                "Participant not found"
+                "survey not found"
             },
             status=404
         )
+    
+    
+    phase.finished_at = timezone.now()
+    phase.save()
 
-    if survey_type == "pre":
-
-        participant.pre_survey_completed = True
-
-    elif survey_type == "post":
-
-        participant.post_survey_completed = True
-
-        participant.finished_at = (
-            timezone.now()
-        )
-
-    participant.save()
+    # If this was the second phase, the whole study is complete
+    if phase.phase_number == 2:
+        participant.finished_at = timezone.now()
+        participant.save()
 
     return Response({
         "success": True
@@ -189,25 +251,34 @@ def chat(request):
             },
             status=404
         )
-
-    if not participant.pre_survey_completed:
-        return Response(
-            {
-                "error": "Complete survey first"
-            },
-            status=403
-        )
-
+    
     condition, _ = ExperimentCondition.objects.get_or_create(
         name=role
     )
 
+    phase = ExperimentPhase.objects.get(
+                participant = participant,
+                condition = condition
+            )
+
+
+
+    # if not participant.pre_survey_completed:
+    #     return Response(
+    #         {
+    #             "error": "Complete survey first"
+    #         },
+    #         status=403
+    #     )
+
+
+    # condition, _ = ExperimentCondition.objects.get_or_create(
+    #     name=role
+    # )
+
     session, _ = ChatSession.objects.get_or_create(
         session_id=session_id,
-        defaults={
-            "condition": condition,
-            "participant": participant
-        }
+        phase = phase
     )
 
     # Get last 20 messages for memory

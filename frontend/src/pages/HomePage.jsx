@@ -14,8 +14,13 @@ function HomePage({ darkMode, setDarkMode }) {
       const res = await api.post("start-experiment/");
 
       localStorage.setItem("participant_id", res.data.participant_id);
-
+      localStorage.setItem("role_order", res.data.role_order);
       localStorage.setItem("condition", res.data.condition);
+      
+      // note for nikhil : you can check from role_order to which 
+      // survey to go after the chat with bot, IG_CE means 
+      // first idea-generator then critical-evaluator
+      // and CE_IG means the reverse
 
       const participantId = res.data.participant_id;
 

@@ -12,7 +12,6 @@ function ExperimentStartPage() {
 
         await api.post("complete-survey/", {
           participant_id: participantId,
-
           survey_type: "pre",
         });
 

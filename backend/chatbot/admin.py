@@ -4,25 +4,39 @@ from .models import (
     Participant,
     ExperimentCondition,
     ChatSession,
-    ChatMessage
+    ChatMessage,
+    ExperimentPhase,
+    Survey
 )
+
+@admin.register(ExperimentPhase)
+class ExperimentalPhaseAdmin(admin.ModelAdmin):
+    list_display=(
+        "participant",
+        "phase_number",
+        "condition",
+        "survey_completed",
+        "started_at",
+        "finished_at"
+    )
+
+@admin.register(Survey)
+class SurveyAdmin(admin.ModelAdmin):
+    list_display=(
+        "phase",
+        "completed",
+        "completed_at",
+    )
 
 @admin.register(Participant)
 class ParticipantAdmin(admin.ModelAdmin):
 
     list_display = (
         "participant_id",
-        "assigned_condition",
-        "pre_survey_completed",
-        "post_survey_completed",
+        "role_order",
         "started_at",
         "finished_at",
         "session_duration"
-    )
-    list_filter = (
-        "assigned_condition",
-        "pre_survey_completed",
-        "post_survey_completed",
     )
 
     def session_duration(self, obj):
@@ -50,14 +64,12 @@ class ChatSessionAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "session_id",
-        "participant",
-        "condition",
+        "phase",
         "total_messages",
         "created_at",
     )
 
     list_filter = (
-        "condition",
         "created_at",
     )
 
